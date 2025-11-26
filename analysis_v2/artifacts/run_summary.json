@@ -1,0 +1,12 @@
+{
+  "best_model": "xgboost",
+  "test_metrics": {
+    "accuracy": 0.8323495655025414,
+    "precision": 0.6048406422238198,
+    "recall": 0.8643835616438356,
+    "f1": 0.7116875793035387,
+    "roc_auc": 0.9268779326260088
+  },
+  "cv_metrics_file": "cv_metrics.csv",
+  "feature_importance_file": "xgboost_feature_importance.csv"
+}

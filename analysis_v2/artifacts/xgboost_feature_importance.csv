@@ -1,0 +1,15 @@
+feature,importance
+num__education_hours_interaction,0.04026889654041639
+num__hours_per_week,0.0389408099688473
+num__capital_loss,0.02295458271847839
+cat__workclass_Federal-gov,0.010575504181013228
+num__age,0.010493523528447235
+num__capital_net,0.006410887030660705
+cat__workclass_Local-gov,0.005148384981144405
+num__fnlwgt,0.004426955238563646
+num__education_num,0.0013444827020822725
+cat__workclass_Never-worked,0.0005246761764223118
+num__capital_gain,0.00032792261026390877
+num__capital_loss_log,-0.00034431874077722746
+num__capital_intensity,-0.0004918839153960297
+num__capital_gain_log,-0.008411214953271063

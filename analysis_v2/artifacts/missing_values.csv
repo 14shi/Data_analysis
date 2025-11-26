@@ -1,0 +1,16 @@
+column,missing_count
+occupation,2805
+workclass,2795
+native_country,856
+age,0
+fnlwgt,0
+education,0
+education_num,0
+marital_status,0
+relationship,0
+race,0
+sex,0
+capital_gain,0
+capital_loss,0
+hours_per_week,0
+income_label,0
