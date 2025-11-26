@@ -8,5 +8,6 @@
     "roc_auc": 0.9268779326260088
   },
   "cv_metrics_file": "cv_metrics.csv",
-  "feature_importance_file": "xgboost_feature_importance.csv"
+  "feature_importance_file": "xgboost_feature_importance.csv",
+  "baseline_metrics_file": "test_metrics_baseline.json"
 }

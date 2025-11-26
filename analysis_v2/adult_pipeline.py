@@ -322,16 +322,57 @@ def build_preprocessor(numeric_cols: List[str], categorical_cols: List[str]) -> 
 
 
 def build_models(
-    numeric_cols: List[str], categorical_cols: List[str], pos_weight: float
+    numeric_cols: List[str],
+    categorical_cols: List[str],
+    pos_weight: float,
+    use_feature_engineer: bool = True,
 ) -> Dict[str, Pipeline]:
     def build_pipeline(classifier: BaseEstimator) -> Pipeline:
-        return Pipeline(
-            steps=[
-                ("feature_engineer", AdultFeatureEngineer()),
-                ("preprocessor", build_preprocessor(numeric_cols, categorical_cols)),
-                ("classifier", classifier),
-            ]
+        steps: List[tuple] = []
+        if use_feature_engineer:
+            steps.append(("feature_engineer", AdultFeatureEngineer()))
+            target_numeric = numeric_cols
+            target_categorical = categorical_cols
+        else:
+            target_numeric = deduplicate(
+                [
+                    col
+                    for col in numeric_cols
+                    if col
+                    not in [
+                        "capital_net",
+                        "capital_gain_log",
+                        "capital_loss_log",
+                        "capital_intensity",
+                        "education_hours_interaction",
+                    ]
+                ]
+            )
+            target_categorical = deduplicate(
+                [
+                    col
+                    for col in categorical_cols
+                    if col
+                    not in [
+                        "workclass_grouped",
+                        "occupation_grouped",
+                        "native_country_grouped",
+                        "age_bucket",
+                        "hours_bucket",
+                        "household_role",
+                        "education_level_grouped",
+                        "sex",
+                    ]
+                ]
+            )
+        steps.append(
+            (
+                "preprocessor",
+                build_preprocessor(target_numeric, target_categorical),
+            )
         )
+        steps.append(("classifier", classifier))
+        return Pipeline(steps=steps)
 
     models = {
         "logistic_regression": build_pipeline(
@@ -528,10 +569,18 @@ def main() -> None:
 
     pos_weight = float((len(y_train) - y_train.sum()) / y_train.sum())
     models = build_models(numeric_cols, categorical_cols, pos_weight)
-    cv_table, test_metrics, best_model_name, best_pipeline = evaluate_models(
-        models, X_train, X_test, y_train, y_test
+    enriched_models = build_models(numeric_cols, categorical_cols, pos_weight, use_feature_engineer=True)
+    enriched_cv, enriched_test, best_model_name, best_pipeline = evaluate_models(
+        enriched_models, X_train, X_test, y_train, y_test
     )
-    save_metrics(cv_table, test_metrics)
+    save_metrics(enriched_cv, enriched_test)
+
+    baseline_models = build_models(numeric_cols, categorical_cols, pos_weight, use_feature_engineer=False)
+    baseline_cv, baseline_test, _, _ = evaluate_models(
+        baseline_models, X_train, X_test, y_train, y_test
+    )
+    baseline_cv.to_csv(ARTIFACTS_DIR / "cv_metrics_baseline.csv", index=False)
+    (ARTIFACTS_DIR / "test_metrics_baseline.json").write_text(json.dumps(baseline_test, indent=2))
 
     if best_pipeline:
         plot_confusion_and_roc(best_pipeline, X_test, y_test, best_model_name)
@@ -542,9 +591,10 @@ def main() -> None:
         json.dumps(
             {
                 "best_model": best_model_name,
-                "test_metrics": test_metrics.get(best_model_name, {}),
+                "test_metrics": enriched_test.get(best_model_name, {}),
                 "cv_metrics_file": "cv_metrics.csv",
                 "feature_importance_file": f"{best_model_name}_feature_importance.csv",
+                "baseline_metrics_file": "test_metrics_baseline.json",
             },
             indent=2,
         )

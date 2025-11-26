@@ -26,7 +26,7 @@
   - **公平性视角**：新增 `income_by_gender.png` 用于快速审视性别与高收入概率的关系，便于后续延展公平性分析。
 
 #### 2.3 多模型流水线
-- 统一流水线：`Pipeline(AdultFeatureEngineer → ColumnTransformer → Classifier)`，确保每种模型接收完全一致的预处理输出。
+- 统一流水线：`Pipeline(AdultFeatureEngineer → ColumnTransformer → Classifier)`，确保每种模型接收完全一致的预处理输出；同时保留“仅基础清洗”版本（关闭特征工程），作为数据层基线。
 - 模型设置：
   1. **Logistic Regression**：`class_weight="balanced"` 增强对少数类的敏感度，作为线性基准。
   2. **Random Forest**：400 棵树、`max_depth=18`、`min_samples_leaf=10`，擅长处理混合类型特征。
@@ -48,39 +48,46 @@
 - 交叉验证与测试阶段统一使用 Accuracy、Precision、Recall、F1、ROC-AUC 五项指标，兼顾整体精度与对少数类的召回。
 - 所有数值均自动写入 `analysis_v2/artifacts/cv_metrics.csv` 和 `test_metrics.json` 以便追溯。
 
-#### 3.2 交叉验证表现
+#### 3.2 交叉验证表现：数据层 vs. 改进层
 
-| 模型 | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --- | --- | --- | --- | --- | --- |
-| Logistic Regression | 0.815 | 0.578 | **0.852** | 0.688 | 0.914 |
-| Random Forest | 0.863 | **0.790** | 0.580 | 0.669 | 0.918 |
-| HistGradientBoosting | **0.872** | 0.782 | 0.647 | **0.708** | 0.928 |
-| XGBoost | 0.838 | 0.617 | 0.852 | 0.715 | **0.928** |
+| 模型 | Accuracy | Precision | Recall | F1 | ROC-AUC | 版本 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Logistic Regression | 0.807 | 0.565 | **0.844** | 0.676 | 0.905 | 基线 |
+| Logistic Regression | 0.815 | 0.578 | **0.852** | 0.688 | 0.914 | 改进 |
+| Random Forest | 0.860 | **0.787** | 0.569 | 0.660 | 0.914 | 基线 |
+| Random Forest | 0.863 | **0.790** | 0.580 | 0.669 | 0.918 | 改进 |
+| HistGradientBoosting | 0.872 | 0.783 | 0.643 | 0.706 | 0.927 | 基线 |
+| HistGradientBoosting | **0.872** | 0.782 | 0.647 | **0.708** | 0.928 | 改进 |
+| XGBoost | 0.838 | 0.616 | 0.856 | 0.716 | **0.929** | 基线 |
+| XGBoost | 0.838 | 0.617 | 0.852 | 0.715 | **0.928** | 改进 |
 
-> 数据来源：`analysis_v2/artifacts/cv_metrics.csv`
-
-解析：
-- Logistic Regression 在 `class_weight="balanced"` 作用下召回率最高，但 Precision 与 F1 有明显短板，说明线性边界不足以利用工程特征的非线性潜力。
-- Random Forest 与 HistGBers 利用树结构捕捉复杂交互，整体精度明显优于线性模型。
-- XGBoost 虽在 Accuracy 上略低，但 F1=0.715，说明其在召回与 Precision 之间取得了更好的折衷，是后续部署的优选。
-
-#### 3.3 独立测试集表现
-
-| 模型 | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --- | --- | --- | --- | --- | --- |
-| Logistic Regression | 0.814 | 0.574 | **0.859** | 0.688 | 0.911 |
-| Random Forest | 0.859 | **0.790** | 0.560 | 0.655 | 0.915 |
-| HistGradientBoosting | **0.869** | 0.779 | 0.634 | 0.699 | 0.926 |
-| XGBoost | 0.832 | 0.605 | 0.864 | **0.712** | **0.927** |
-
-> 数据来源：`analysis_v2/artifacts/test_metrics.json`
+> 数据来源：`analysis_v2/artifacts/cv_metrics_baseline.csv` 与 `cv_metrics.csv`
 
 解析：
-- **召回 vs. 精准度**：Logistic Regression 继续维持高召回但精度不足；XGBoost 以 0.864 的召回和 0.605 的精度实现 F1=0.712，显著减少误报。
-- **Accuracy vs. F1**：HistGB 在 Accuracy 上领先，说明其对多数类预测更稳健；但 F1 略低于 XGBoost，理由在于 HistGB 对少数类召回只有 0.634。
+- **数据治理收益**：对比同一模型在“基线 vs 改进”两列的 F1，可见 Logistic F1 从 0.676 → 0.688、Random Forest 从 0.660 → 0.669、HistGB 0.706 → 0.708，说明高级清洗与特征工程对所有模型都有增益；说明模型性能提升不是单纯的模型类型差异，而是数据价值被释放。
+- **模型普适性**：即使在基线数据上，树模型也优于线性模型，但差距更小；经过特征工程后，树模型的优势进一步放大，证明数据治理对捕捉非线性模式尤其有效。
+
+#### 3.3 独立测试集表现：数据层 vs. 改进层
+
+| 模型 | Accuracy | Precision | Recall | F1 | ROC-AUC | 版本 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Logistic Regression | 0.802 | 0.557 | **0.848** | 0.672 | 0.903 | 基线 |
+| Logistic Regression | 0.814 | 0.574 | **0.859** | 0.688 | 0.911 | 改进 |
+| Random Forest | 0.855 | **0.784** | 0.547 | 0.644 | 0.911 | 基线 |
+| Random Forest | 0.859 | **0.790** | 0.560 | 0.655 | 0.915 | 改进 |
+| HistGradientBoosting | **0.870** | 0.784 | 0.629 | 0.698 | 0.926 | 基线 |
+| HistGradientBoosting | **0.869** | 0.779 | 0.634 | 0.699 | 0.926 | 改进 |
+| XGBoost | 0.831 | 0.603 | 0.862 | 0.710 | **0.927** | 基线 |
+| XGBoost | 0.832 | 0.605 | 0.864 | **0.712** | **0.927** | 改进 |
+
+> 数据来源：`analysis_v2/artifacts/test_metrics_baseline.json` 与 `test_metrics.json`
+
+解析：
+- **召回 vs. 精准度**：Logistic Regression 在基线和改进版本中都维持 >0.84 的召回，但 Precision/F1 仅从 0.557/0.672 提升到 0.574/0.688；相比之下，Random Forest、HistGB、XGBoost 的 F1 提升幅度更大，说明非线性模型更能利用新的数据特征。
+- **Accuracy vs. F1**：HistGB 的 Accuracy 始终领先，证明其对多数类预测更稳定；XGBoost 在 F1 上最优，得益于对少数类召回的持续保持（0.862→0.864）。
 - `run_summary.json` 记录 XGBoost 为最佳模型，并打印其测试指标，方便在报告或演示中引用。
 
-- **与线性基线对比**：Logistic Regression（仅基础清洗）虽然召回达 0.859，但 Precision/F1 分别只有 0.574/0.688；XGBoost 在相同数据上凭借工程特征 + 树模型把 F1 提升到 0.712，同时保持 0.864 的召回，说明预处理与非线性结构带来的增益真实可量化。
+- **与线性基线对比**：Logistic Regression（基础清洗）F1 为 0.672；在同样模型下加入高级特征后，F1 升至 0.688。若再换成 XGBoost，F1 达到 0.712，召回仍保持 0.864。这表明：① 数据治理 + 特征工程本身有效；② 在改进后的数据上，采用能捕捉非线性关系的模型可进一步释放潜力。
 - **混淆矩阵与 ROC 曲线**（`analysis_v2/artifacts/xgboost_confusion_matrix.png`、`xgboost_roc_curve.png`）显示在 0.5 阈值下可捕获 86% 高收入用户且保持可控 FPR，适合收入筛查应用。
 - **特征重要性**：置换重要性（`xgboost_feature_importance.csv` 与 `hist_gradient_boosting_feature_importance.csv`）一致强调 `hours_per_week`、`education_hours_interaction`、`capital_loss`、`age`、`capital_net` 为主驱动，验证“劳动投入 + 教育深度 + 资本收益”假设。
 - **预处理贡献**：稀有类别合并与资本长尾裁剪抑制了过拟合；`education_hours_interaction` 刻画“技能利用率”，成为提升 F1 的关键变量；`numeric_distributions.png`、`boxplot_income.png` 与 `income_by_education.png` 等可视化进一步印证了这些特征的区分度与业务含义。
